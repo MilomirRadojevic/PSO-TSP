@@ -1,122 +1,106 @@
-import java.lang.reflect.Array;
+import java.awt.*;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
-import java.util.Random;
 
 public class Main {
-    private static final int NB_PARTICLES = 10;
-    private static final int NB_OPERANDS = 3;
-    private static final int MIN_RANGE = 149;
-    private static final int MAX_RANGE = 190;
-    private static final int TARGET_VALUE = 100;
+    private static final int NUMBER_OF_PARTICLES = 16;
+    private static List<Particle> particles = Arrays.asList(new Particle[NUMBER_OF_PARTICLES]);
+
+    private static double globalBestValue = Double.MAX_VALUE;
+    private static double previousGlobalBestValue = Double.MAX_VALUE;
+    private static int iteration = 1;
     private static final int MAX_ITERATIONS = 200;
-    private static final int MAX_VELOCITY = 10;
-    private static final int POSITIVE_INFINITY = 100000;
-    private static int globalBestValue = POSITIVE_INFINITY;
-    private static int iteration = 0;
-    private static List<List<Double>> position = Arrays.asList((List<Double>[]) Array.newInstance(List.class, NB_PARTICLES));
-    private static List<Integer> currentValue = Arrays.asList(new Integer[NB_PARTICLES]);
-    private static List<Integer> bestValue = Arrays.asList(new Integer[NB_PARTICLES]);
-    private static List<Double> velocity = Arrays.asList(new Double[NB_PARTICLES]);
+    private static int iterationsSinceLastImprovement = 0;
+    private static final int MAX_ITERATIONS_WITHOUT_IMPROVEMENT = 20;
 
-    private static int randomInt(int min, int max) {
-        Random rand = new Random();
+    private static double inertiaFactor = 0.9;
+    private static double cognitiveFactor = 0.05;
+    private static double socialFactor = 0.05;
 
-        return min + rand.nextInt(max - min + 1);
-    }
-
-    private static double randomDouble() {
-        Random rand = new Random();
-
-        return rand.nextDouble();
-    }
-
-    private static int solutionValue(int i) {
-        int sum = 0;
-        for (int j = 0; j < NB_OPERANDS; j++) {
-            sum += Math.round(position.get(i).get(j));
+    private static double solutionValue(Particle particle) {
+        double value = 0;
+        for (int i = 0; i < particle.getPoints().size() - 1; i++) {
+            value += particle.getPoints().get(i).distance(particle.getPoints().get(i + 1));
         }
 
-        return sum;
+        return value;
     }
 
     private static void initialization() {
-        for (int i = 0; i < NB_PARTICLES; i++) {
-            position.set(i, Arrays.asList(new Double[NB_OPERANDS]));
+        List<Point> inputPoints  = new ArrayList<>();
+        inputPoints.add(new Point(0, 0));
+        inputPoints.add(new Point(1, 0));
+        inputPoints.add(new Point(2, 0));
+        inputPoints.add(new Point(3, 0));
+        inputPoints.add(new Point(3, 2));
 
-            for (int j = 0; j < NB_OPERANDS; j++) {
-                position.get(i).set(j, (double) randomInt(MIN_RANGE, MAX_RANGE));
-            }
-
-            currentValue.set(i, solutionValue(i));
-            bestValue.set(i, currentValue.get(i));
-
-            if (Math.abs(currentValue.get(i) - TARGET_VALUE) < Math.abs(globalBestValue - TARGET_VALUE)) {
-                globalBestValue = currentValue.get(i);
-            }
-
-            velocity.set(i, 0.0);
+        for (int i = 0; i < NUMBER_OF_PARTICLES; i++) {
+            Collections.shuffle(inputPoints);
+            particles.set(i, new Particle(new ArrayList<>(inputPoints)));
+            particles.get(i).setBestValue(solutionValue(particles.get(i)));
         }
     }
 
     private static void updateVelocity() {
-        for (int i = 0; i < NB_PARTICLES; i++) {
-            velocity.set(i, velocity.get(i) + 2.0 * randomDouble() * (bestValue.get(i) - currentValue.get(i)) + 2.0 * randomDouble() * (globalBestValue - currentValue.get(i)));
-            if (velocity.get(i) > MAX_VELOCITY) {
-                velocity.set(i, (double) MAX_VELOCITY);
-            }
-            if (velocity.get(i) < -MAX_VELOCITY) {
-                velocity.set(i, (double) -MAX_VELOCITY);
-            }
-        }
+        //
     }
 
     private static void updatePosition() {
-        for (int i = 0; i < NB_PARTICLES; i++) {
-            for (int j = 0; j < NB_OPERANDS; j++) {
-                position.get(i).set(j, position.get(i).get(j) + velocity.get(i));
-            }
-
-            currentValue.set(i, solutionValue(i));
-
-            if (Math.abs(currentValue.get(i) - TARGET_VALUE) < Math.abs(bestValue.get(i) - TARGET_VALUE)) {
-                bestValue.set(i, currentValue.get(i));
-            }
-
-            if (Math.abs(currentValue.get(i) - TARGET_VALUE) < Math.abs(globalBestValue - TARGET_VALUE)) {
-                globalBestValue = currentValue.get(i);
-            }
+        for (int i = 0; i < NUMBER_OF_PARTICLES; i++) {
+            Collections.shuffle(particles.get(i).getPoints());
         }
     }
 
     private static void print() {
-        for (int i = 0; i < NB_PARTICLES; i++) {
-            for (int j = 0; j < NB_OPERANDS; j++) {
-                System.out.print(Math.round(position.get(i).get(j)) + (j < NB_OPERANDS - 1 ? " + " : " = "));
+        System.out.println("Iteration: " + iteration + ". Iterations since last improvement: " + iterationsSinceLastImprovement + ".");
+
+        for (int i = 0; i < NUMBER_OF_PARTICLES; i++) {
+            for (Point j : particles.get(i).getPoints()) {
+                System.out.print(j.x + "," + j.y + " ");
             }
 
-            System.out.println(currentValue.get(i));
+            System.out.println(" Current: " + solutionValue(particles.get(i)) + "  Best: " + particles.get(i).getBestValue());
         }
 
+        System.out.println("Global best value: " + globalBestValue);
         System.out.println();
     }
 
     private static void PSO() {
         initialization();
 
-        while (iteration++ < MAX_ITERATIONS) {
-            print();
+        do {
+            for (int i = 0; i < NUMBER_OF_PARTICLES; i++) {
+                double currentValue = solutionValue(particles.get(i));
 
-            if (globalBestValue == TARGET_VALUE) {
-                System.out.println("Solution found after " + iteration + " iterations");
-                return;
+                if (currentValue < particles.get(i).getBestValue()) {
+                    particles.get(i).setBestValue(currentValue);
+                }
+
+                if (currentValue < globalBestValue) {
+                    globalBestValue = currentValue;
+                }
             }
+
+            if (globalBestValue < previousGlobalBestValue) {
+                iterationsSinceLastImprovement = 0;
+            }
+            previousGlobalBestValue = globalBestValue;
+
+            print();
 
             updateVelocity();
             updatePosition();
-        }
 
-        System.out.println("Solution not found");
+            //izmeniti tako da budu proporcinalni broju iteracija
+            inertiaFactor *= 0.95;
+            cognitiveFactor *= 1.01;
+            socialFactor = 1 - (inertiaFactor + cognitiveFactor);
+
+            System.out.println(inertiaFactor + " _ " + cognitiveFactor + " _ " + socialFactor);
+        } while (iteration++ < MAX_ITERATIONS && ++iterationsSinceLastImprovement < MAX_ITERATIONS_WITHOUT_IMPROVEMENT);
     }
 
     public static void main(String[] args) {
