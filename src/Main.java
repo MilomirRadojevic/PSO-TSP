@@ -12,9 +12,7 @@ public class Main {
     private static double previousGlobalBestValue = Double.MAX_VALUE;
 
     private static int iteration = 1;
-    private static final int MAX_ITERATIONS = 200;
-    private static int iterationsSinceLastImprovement = 0;
-    private static final int MAX_ITERATIONS_WITHOUT_IMPROVEMENT = 20;
+    private static final int MAX_ITERATIONS = 2000;
 
     private static double inertiaFactorProbability = 0.9;
     private static double cognitiveFactorProbability = 0.05;
@@ -25,13 +23,55 @@ public class Main {
 
     private static void initialization() {
         List<Point> inputPoints  = new ArrayList<>();
-        inputPoints.add(new Point(0, 0));
-        inputPoints.add(new Point(1, 0));
-        inputPoints.add(new Point(2, 0));
-        inputPoints.add(new Point(3, 0));
-        inputPoints.add(new Point(3, 1));
-        inputPoints.add(new Point(3, 2));
-        inputPoints.add(new Point(3, 3));
+        //10628
+        inputPoints.add(new Point(6734, 1453));
+        inputPoints.add(new Point(2233, 10));
+        inputPoints.add(new Point(5530, 1424));
+        inputPoints.add(new Point(401, 841));
+        inputPoints.add(new Point(3082, 1644));
+        inputPoints.add(new Point(7608, 4458));
+        inputPoints.add(new Point(7573, 3716));
+        inputPoints.add(new Point(7265, 1268));
+        inputPoints.add(new Point(6898, 1885));
+        inputPoints.add(new Point(1112, 2049));
+        inputPoints.add(new Point(5468, 2606));
+        inputPoints.add(new Point(5989, 2873));
+        inputPoints.add(new Point(4706, 2674));
+        inputPoints.add(new Point(4612, 2035));
+        inputPoints.add(new Point(6347, 2683));
+        inputPoints.add(new Point(6107, 669));
+        inputPoints.add(new Point(7611, 5184));
+        inputPoints.add(new Point(7462, 3590));
+        inputPoints.add(new Point(7732, 4723));
+        inputPoints.add(new Point(5900, 3561));
+        inputPoints.add(new Point(4483, 3369));
+        inputPoints.add(new Point(6101, 1110));
+        inputPoints.add(new Point(5199, 2182));
+        inputPoints.add(new Point(1633, 2809));
+        inputPoints.add(new Point(4307, 2322));
+        inputPoints.add(new Point(675, 1006));
+        inputPoints.add(new Point(7555, 4819));
+        inputPoints.add(new Point(7541, 3981));
+        inputPoints.add(new Point(3177, 756 ));
+        inputPoints.add(new Point(7352, 4506));
+        inputPoints.add(new Point(7545, 2801));
+        inputPoints.add(new Point(3245, 3305));
+        inputPoints.add(new Point(6426, 3173));
+        inputPoints.add(new Point(4608, 1198));
+        inputPoints.add(new Point(23, 2216));
+        inputPoints.add(new Point(7248, 3779));
+        inputPoints.add(new Point(7762, 4595));
+        inputPoints.add(new Point(7392, 2244));
+        inputPoints.add(new Point(3484, 2829));
+        inputPoints.add(new Point(6271, 2135));
+        inputPoints.add(new Point(4985, 140));
+        inputPoints.add(new Point(1916, 1569));
+        inputPoints.add(new Point(7280, 4899));
+        inputPoints.add(new Point(7509, 3239));
+        inputPoints.add(new Point(10, 2676));
+        inputPoints.add(new Point(6807, 2993));
+        inputPoints.add(new Point(5185, 3258));
+        inputPoints.add(new Point(3023, 1942));
 
         for (int i = 0; i < NUMBER_OF_PARTICLES; i++) {
             Collections.shuffle(inputPoints);
@@ -60,13 +100,13 @@ public class Main {
     private static void updatePosition(Particle particle) {
         switch (particle.getVelocityType()) {
             case V_INERTIA:
-                particle.shuffleCurrentSolution();
-                break;
-            case V_COGNITIVE:
                 particle.inversionNeighborhood();
                 break;
+            case V_COGNITIVE:
+                particle.pathRelinking(particle.getBestSolution());
+                break;
             case V_SOCIAL:
-                particle.pathRelinking(globalBestSolution);
+                particle.pathRelinking(globalBestSolution.getBestSolution());
                 break;
         }
     }
@@ -81,15 +121,15 @@ public class Main {
     }
 
     private static void print() {
-        System.out.println("Iteration: " + iteration + ". Iterations since last improvement: " + iterationsSinceLastImprovement + ".");
-
-        for (Particle particle : particles) {
-            for (Point j : particle.getCurrentSolution()) {
-                System.out.print(j.x + "," + j.y + " ");
-            }
-
-            System.out.println(" Current: " + particle.getCurrentValue() + "  Best: " + particle.getBestValue());
-        }
+//        System.out.println("Iteration: " + iteration + ". Iterations since last improvement: " + iterationsSinceLastImprovement + ".");
+//
+//        for (Particle particle : particles) {
+//            for (Point j : particle.getCurrentSolution()) {
+//                System.out.print(j.x + "," + j.y + " ");
+//            }
+//
+//            System.out.println(" Current: " + particle.getCurrentValue() + "  Best: " + particle.getBestValue());
+//        }
 
         System.out.println("Global best value: " + globalBestSolution.getBestValue());
         System.out.println();
@@ -112,11 +152,8 @@ public class Main {
             }
 
             if (globalBestSolution.getBestValue() < previousGlobalBestValue) {
-                iterationsSinceLastImprovement = 0;
                 previousGlobalBestValue = globalBestSolution.getBestValue();
             }
-
-            print();
 
             for (Particle particle : particles) {
                 defineVelocity(particle);
@@ -124,7 +161,9 @@ public class Main {
             }
 
             updateProbabilities();
-        } while (iteration++ < MAX_ITERATIONS && ++iterationsSinceLastImprovement < MAX_ITERATIONS_WITHOUT_IMPROVEMENT);
+        } while (iteration++ < MAX_ITERATIONS);
+
+        print();
     }
 
     public static void main(String[] args) {
