@@ -2,6 +2,7 @@ import java.awt.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class Main {
     private static final int NUMBER_OF_PARTICLES = 16;
@@ -44,18 +45,36 @@ public class Main {
         }
     }
 
-    private static void defineVelocity() {
-        //.........................
+    private static void defineVelocity(Particle particle) {
+        double randomNumber = ThreadLocalRandom.current().nextDouble();
+
+        if (randomNumber < inertiaFactorProbability) {
+            particle.setVelocityType(VelocityType.V_INERTIA);
+        } else if (randomNumber < inertiaFactorProbability + cognitiveFactorProbability) {
+            particle.setVelocityType(VelocityType.V_COGNITIVE);
+        } else { // randomNumber < inertiaFactorProbability + cognitiveFactorProbability + socialFactorProbability ~ 1
+            particle.setVelocityType(VelocityType.V_SOCIAL);
+        }
     }
 
     private static void updatePosition(Particle particle) {
-        particle.shuffleCurrentSolution();
+        switch (particle.getVelocityType()) {
+            case V_INERTIA:
+                particle.shuffleCurrentSolution();
+                break;
+            case V_COGNITIVE:
+                particle.inversionNeighborhood();
+                break;
+            case V_SOCIAL:
+                particle.pathRelinking(globalBestSolution);
+                break;
+        }
     }
 
     private static void updateProbabilities() {
         //inertia starts as high while others are low
         //by each iteration, inertia gets lower while others get higher
-        //in the end, unless there was early exit, social factor will be high, cognitive low, and inertia almost non-existant
+        //in the end, unless there was early exit, social factor will be high, cognitive low, and inertia almost non-existent
         inertiaFactorProbability *= 1 - INERTIA_DELTA_COEF / MAX_ITERATIONS;
         cognitiveFactorProbability *= 1 + COGNITIVE_DELTA_COEF / MAX_ITERATIONS;
         socialFactorProbability = 1 - (inertiaFactorProbability + cognitiveFactorProbability);
@@ -100,7 +119,7 @@ public class Main {
             print();
 
             for (Particle particle : particles) {
-                defineVelocity();
+                defineVelocity(particle);
                 updatePosition(particle);
             }
 

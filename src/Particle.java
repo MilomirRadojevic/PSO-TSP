@@ -8,17 +8,18 @@ public class Particle {
     private List<Point> bestSolution;
     private double currentValue;
     private double bestValue;
+    private VelocityType velocityType;
 
     Particle(List<Point> points) {
         setCurrentSolution(points);
         setBestSolutionToCurrentSolution();
     }
 
-    Particle(Particle particle) {
-        currentSolution = new ArrayList<>(particle.getCurrentSolution());
-        bestSolution = new ArrayList<>(particle.getBestSolution());
-        currentValue = particle.getCurrentValue();
-        bestValue = particle.getBestValue();
+    Particle(Particle other) {
+        currentSolution = new ArrayList<>(other.getCurrentSolution());
+        bestSolution = new ArrayList<>(other.getBestSolution());
+        currentValue = other.getCurrentValue();
+        bestValue = other.getBestValue();
     }
 
     public List<Point> getCurrentSolution() {
@@ -33,6 +34,18 @@ public class Particle {
     public void shuffleCurrentSolution() {
         Collections.shuffle(currentSolution);
         currentValue = calculateSolutionValue(currentSolution);
+    }
+
+    public void inversionNeighborhood() {
+        //find local minimum using inversion neighborhood strategy
+        //TODO: remove following temp code
+        shuffleCurrentSolution();
+    }
+
+    public void pathRelinking(Particle other) {
+        //find combination of two solutions using path relinking strategy
+        //TODO: remove following temp code
+        shuffleCurrentSolution();
     }
 
     public List<Point> getBestSolution() {
@@ -59,5 +72,13 @@ public class Particle {
 
     public double getBestValue() {
         return bestValue;
+    }
+
+    public VelocityType getVelocityType() {
+        return velocityType;
+    }
+
+    public void setVelocityType(VelocityType velocityType) {
+        this.velocityType = velocityType;
     }
 }
