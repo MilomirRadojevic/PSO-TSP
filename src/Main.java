@@ -1,32 +1,26 @@
 import java.awt.*;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
 public class Main {
     private static final int NUMBER_OF_PARTICLES = 16;
-    private static List<Particle> particles = Arrays.asList(new Particle[NUMBER_OF_PARTICLES]);
+    private static List<Particle> particles = new ArrayList<>();
 
-    private static double globalBestValue = Double.MAX_VALUE;
+    private static Particle globalBestSolution;
     private static double previousGlobalBestValue = Double.MAX_VALUE;
+
     private static int iteration = 1;
     private static final int MAX_ITERATIONS = 200;
     private static int iterationsSinceLastImprovement = 0;
     private static final int MAX_ITERATIONS_WITHOUT_IMPROVEMENT = 20;
 
-    private static double inertiaFactor = 0.9;
-    private static double cognitiveFactor = 0.05;
-    private static double socialFactor = 0.05;
+    private static double inertiaFactorProbability = 0.9;
+    private static double cognitiveFactorProbability = 0.05;
+    private static double socialFactorProbability = 0.05;
 
-    private static double solutionValue(Particle particle) {
-        double value = 0;
-        for (int i = 0; i < particle.getPoints().size() - 1; i++) {
-            value += particle.getPoints().get(i).distance(particle.getPoints().get(i + 1));
-        }
-
-        return value;
-    }
+    private static final double INERTIA_DELTA_COEF = 4.0;
+    private static final double COGNITIVE_DELTA_COEF = 2.0;
 
     private static void initialization() {
         List<Point> inputPoints  = new ArrayList<>();
@@ -34,37 +28,51 @@ public class Main {
         inputPoints.add(new Point(1, 0));
         inputPoints.add(new Point(2, 0));
         inputPoints.add(new Point(3, 0));
+        inputPoints.add(new Point(3, 1));
         inputPoints.add(new Point(3, 2));
+        inputPoints.add(new Point(3, 3));
 
         for (int i = 0; i < NUMBER_OF_PARTICLES; i++) {
             Collections.shuffle(inputPoints);
-            particles.set(i, new Particle(new ArrayList<>(inputPoints)));
-            particles.get(i).setBestValue(solutionValue(particles.get(i)));
+            Particle particle = new Particle(inputPoints);
+
+            particles.add(particle);
+
+            if (globalBestSolution == null || particle.getBestValue() < globalBestSolution.getBestValue()) {
+                globalBestSolution = new Particle(particle);
+            }
         }
     }
 
-    private static void updateVelocity() {
-        //
+    private static void defineVelocity() {
+        //.........................
     }
 
-    private static void updatePosition() {
-        for (int i = 0; i < NUMBER_OF_PARTICLES; i++) {
-            Collections.shuffle(particles.get(i).getPoints());
-        }
+    private static void updatePosition(Particle particle) {
+        particle.shuffleCurrentSolution();
+    }
+
+    private static void updateProbabilities() {
+        //inertia starts as high while others are low
+        //by each iteration, inertia gets lower while others get higher
+        //in the end, unless there was early exit, social factor will be high, cognitive low, and inertia almost non-existant
+        inertiaFactorProbability *= 1 - INERTIA_DELTA_COEF / MAX_ITERATIONS;
+        cognitiveFactorProbability *= 1 + COGNITIVE_DELTA_COEF / MAX_ITERATIONS;
+        socialFactorProbability = 1 - (inertiaFactorProbability + cognitiveFactorProbability);
     }
 
     private static void print() {
         System.out.println("Iteration: " + iteration + ". Iterations since last improvement: " + iterationsSinceLastImprovement + ".");
 
-        for (int i = 0; i < NUMBER_OF_PARTICLES; i++) {
-            for (Point j : particles.get(i).getPoints()) {
+        for (Particle particle : particles) {
+            for (Point j : particle.getCurrentSolution()) {
                 System.out.print(j.x + "," + j.y + " ");
             }
 
-            System.out.println(" Current: " + solutionValue(particles.get(i)) + "  Best: " + particles.get(i).getBestValue());
+            System.out.println(" Current: " + particle.getCurrentValue() + "  Best: " + particle.getBestValue());
         }
 
-        System.out.println("Global best value: " + globalBestValue);
+        System.out.println("Global best value: " + globalBestSolution.getBestValue());
         System.out.println();
     }
 
@@ -72,34 +80,31 @@ public class Main {
         initialization();
 
         do {
-            for (int i = 0; i < NUMBER_OF_PARTICLES; i++) {
-                double currentValue = solutionValue(particles.get(i));
+            for (Particle particle : particles) {
+                double currentValue = particle.getCurrentValue();
 
-                if (currentValue < particles.get(i).getBestValue()) {
-                    particles.get(i).setBestValue(currentValue);
+                if (currentValue < particle.getBestValue()) {
+                    particle.setBestSolutionToCurrentSolution();
                 }
 
-                if (currentValue < globalBestValue) {
-                    globalBestValue = currentValue;
+                if (currentValue < globalBestSolution.getBestValue()) {
+                    globalBestSolution = new Particle(particle);
                 }
             }
 
-            if (globalBestValue < previousGlobalBestValue) {
+            if (globalBestSolution.getBestValue() < previousGlobalBestValue) {
                 iterationsSinceLastImprovement = 0;
+                previousGlobalBestValue = globalBestSolution.getBestValue();
             }
-            previousGlobalBestValue = globalBestValue;
 
             print();
 
-            updateVelocity();
-            updatePosition();
+            for (Particle particle : particles) {
+                defineVelocity();
+                updatePosition(particle);
+            }
 
-            //izmeniti tako da budu proporcinalni broju iteracija
-            inertiaFactor *= 0.95;
-            cognitiveFactor *= 1.01;
-            socialFactor = 1 - (inertiaFactor + cognitiveFactor);
-
-            System.out.println(inertiaFactor + " _ " + cognitiveFactor + " _ " + socialFactor);
+            updateProbabilities();
         } while (iteration++ < MAX_ITERATIONS && ++iterationsSinceLastImprovement < MAX_ITERATIONS_WITHOUT_IMPROVEMENT);
     }
 
