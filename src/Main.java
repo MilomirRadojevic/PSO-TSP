@@ -5,11 +5,12 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class Main {
-    private static final int NUMBER_OF_PARTICLES = 16;
+    private static final int NUMBER_OF_PARTICLES = 32;
     private static List<Particle> particles = new ArrayList<>();
 
+    private static List<Thread> threads = new ArrayList<>();
+
     private static Particle globalBestSolution;
-    private static double previousGlobalBestValue = Double.MAX_VALUE;
 
     private static int iteration = 1;
     private static final int MAX_ITERATIONS = 2000;
@@ -21,9 +22,22 @@ public class Main {
     private static final double INERTIA_DELTA_COEF = 4.0;
     private static final double COGNITIVE_DELTA_COEF = 2.0;
 
+    private static class ParticleThread implements Runnable {
+        private Particle particle;
+
+        private ParticleThread(Particle particle) {
+            this.particle = particle;
+        }
+
+        public void run(){
+            defineVelocity(particle);
+            updatePosition(particle);
+        }
+    }
+
     private static void initialization() {
         List<Point> inputPoints  = new ArrayList<>();
-        //10628
+        //33523
         inputPoints.add(new Point(6734, 1453));
         inputPoints.add(new Point(2233, 10));
         inputPoints.add(new Point(5530, 1424));
@@ -74,7 +88,7 @@ public class Main {
         inputPoints.add(new Point(3023, 1942));
 
         for (int i = 0; i < NUMBER_OF_PARTICLES; i++) {
-            Collections.shuffle(inputPoints);
+            Collections.shuffle(inputPoints, ThreadLocalRandom.current());
             Particle particle = new Particle(inputPoints);
 
             particles.add(particle);
@@ -121,21 +135,35 @@ public class Main {
     }
 
     private static void print() {
-//        System.out.println("Iteration: " + iteration + ". Iterations since last improvement: " + iterationsSinceLastImprovement + ".");
-//
-//        for (Particle particle : particles) {
-//            for (Point j : particle.getCurrentSolution()) {
-//                System.out.print(j.x + "," + j.y + " ");
-//            }
-//
-//            System.out.println(" Current: " + particle.getCurrentValue() + "  Best: " + particle.getBestValue());
-//        }
+        System.out.println("Iteration: " + iteration + ".");
+
+        for (Particle particle : particles) {
+            for (Point j : particle.getCurrentSolution()) {
+                System.out.print(j.x + "," + j.y + " ");
+            }
+
+            System.out.println(" Current: " + particle.getCurrentValue() + "  Best: " + particle.getBestValue());
+        }
 
         System.out.println("Global best value: " + globalBestSolution.getBestValue());
         System.out.println();
+
+        System.out.print("x = np.fromstring('");
+        for (Point j : globalBestSolution.getCurrentSolution()) {
+            System.out.print(j.x + " ");
+        }
+        System.out.print(globalBestSolution.getCurrentSolution().get(0).x + "', dtype=int, sep=' ')");
+
+        System.out.println(" ");
+
+        System.out.print("y = np.fromstring('");
+        for (Point j : globalBestSolution.getCurrentSolution()) {
+            System.out.print(j.y + " ");
+        }
+        System.out.print(globalBestSolution.getCurrentSolution().get(0).y + "', dtype=int, sep=' ')");
     }
 
-    private static void PSO() {
+    private static void PSO() throws InterruptedException {
         initialization();
 
         do {
@@ -151,14 +179,18 @@ public class Main {
                 }
             }
 
-            if (globalBestSolution.getBestValue() < previousGlobalBestValue) {
-                previousGlobalBestValue = globalBestSolution.getBestValue();
+            for (Particle particle : particles) {
+                Thread thread = new Thread(new ParticleThread(particle));
+                threads.add(thread);
+
+                thread.start();
             }
 
-            for (Particle particle : particles) {
-                defineVelocity(particle);
-                updatePosition(particle);
+            for (Thread thread : threads) {
+                thread.join();
             }
+
+            threads.clear();
 
             updateProbabilities();
         } while (iteration++ < MAX_ITERATIONS);
@@ -166,7 +198,13 @@ public class Main {
         print();
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
+        long startTime = System.currentTimeMillis();
+
         PSO();
+
+        System.out.println();
+        System.out.println();
+        System.out.println(System.currentTimeMillis() - startTime + " ms");
     }
 }

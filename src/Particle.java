@@ -2,6 +2,7 @@ import java.awt.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class Particle {
     private List<Point> currentSolution;
@@ -32,7 +33,7 @@ public class Particle {
     }
 
     public void shuffleCurrentSolution() {
-        Collections.shuffle(currentSolution);
+        Collections.shuffle(currentSolution, ThreadLocalRandom.current());
         currentValue = calculateSolutionValue(currentSolution);
     }
 
@@ -60,25 +61,34 @@ public class Particle {
     }
 
     public void pathRelinking(List<Point> otherPoints) {
-        Collections.rotate(currentSolution, -currentSolution.indexOf(otherPoints.get(0)));
+        List<Point> currentIntermediate = new ArrayList<>(currentSolution);
+
+        Collections.rotate(currentIntermediate, -currentIntermediate.indexOf(otherPoints.get(0)));
+
+        List<List<Point>> intermediates = new ArrayList<>();
+        List<Point> bestIntermediate = null;
 
         for (int i = 1; i < otherPoints.size(); i++) {
             Point targetElement = otherPoints.get(i);
-            int index = currentSolution.indexOf(targetElement);
+            int index = currentIntermediate.indexOf(targetElement);
             while (index != i) {
-                Collections.swap(currentSolution, index, index - 1);
+                Collections.swap(currentIntermediate, index, index - 1);
+
+                intermediates.add(new ArrayList<>(currentIntermediate));
+
                 index--;
             }
         }
-    }
 
-    public List<Point> getBestSolution() {
-        return bestSolution;
-    }
+        if (intermediates.size() > 0) {
+            for (List<Point> intermediate : intermediates) {
+                if (bestIntermediate == null || calculateSolutionValue(intermediate) < calculateSolutionValue(bestIntermediate)) {
+                    bestIntermediate = intermediate;
+                }
+            }
 
-    public void setBestSolutionToCurrentSolution() {
-        bestSolution = new ArrayList<>(currentSolution);
-        bestValue = calculateSolutionValue(bestSolution);
+            setCurrentSolution(bestIntermediate);
+        }
     }
 
     private static double calculateSolutionValue(List<Point> solution) {
@@ -88,6 +98,15 @@ public class Particle {
         }
 
         return value;
+    }
+
+    public List<Point> getBestSolution() {
+        return bestSolution;
+    }
+
+    public void setBestSolutionToCurrentSolution() {
+        bestSolution = new ArrayList<>(currentSolution);
+        bestValue = calculateSolutionValue(bestSolution);
     }
 
     public double getCurrentValue() {
