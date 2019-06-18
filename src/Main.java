@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class Main {
-    private static final int NUMBER_OF_PARTICLES = 32;
+    private static final int NUMBER_OF_PARTICLES = 1000;
     private static List<Particle> particles = new ArrayList<>();
 
     private static List<Thread> threads = new ArrayList<>();
@@ -13,14 +13,15 @@ public class Main {
     private static Particle globalBestSolution;
 
     private static int iteration = 1;
-    private static final int MAX_ITERATIONS = 2000;
+    private static final int MAX_ITERATIONS = 3;
 
-    private static double inertiaFactorProbability = 0.9;
+    private static double inertiaFactorProbability = 0.8;
     private static double cognitiveFactorProbability = 0.05;
     private static double socialFactorProbability = 0.05;
+    private static double chaosFactorProbability = 0.1;
 
-    private static final double INERTIA_DELTA_COEF = 4.0;
-    private static final double COGNITIVE_DELTA_COEF = 2.0;
+    private static final double INERTIA_DELTA_COEF = 3.0;
+    private static final double COGNITIVE_DELTA_COEF = 1.75;
 
     private static class ParticleThread implements Runnable {
         private Particle particle;
@@ -103,11 +104,29 @@ public class Main {
         double randomNumber = ThreadLocalRandom.current().nextDouble();
 
         if (randomNumber < inertiaFactorProbability) {
-            particle.setVelocityType(VelocityType.V_INERTIA);
+            if (particle.getVelocityType() == VelocityType.V_INERTIA) {
+                defineVelocity(particle);
+            } else {
+                particle.setVelocityType(VelocityType.V_INERTIA);
+            }
         } else if (randomNumber < inertiaFactorProbability + cognitiveFactorProbability) {
-            particle.setVelocityType(VelocityType.V_COGNITIVE);
-        } else { // randomNumber < inertiaFactorProbability + cognitiveFactorProbability + socialFactorProbability ~ 1
-            particle.setVelocityType(VelocityType.V_SOCIAL);
+            if (particle.getVelocityType() == VelocityType.V_COGNITIVE) {
+                defineVelocity(particle);
+            } else {
+                particle.setVelocityType(VelocityType.V_COGNITIVE);
+            }
+        } else if (randomNumber < inertiaFactorProbability + cognitiveFactorProbability + chaosFactorProbability) {
+            if (particle.getVelocityType() == VelocityType.V_CHAOS) {
+                defineVelocity(particle);
+            } else {
+                particle.setVelocityType(VelocityType.V_CHAOS);
+            }
+        } else { // randomNumber < inertiaFactorProbability + cognitiveFactorProbability + socialFactorProbability + chaosFactorProbability ~ 1
+            if (particle.getVelocityType() == VelocityType.V_SOCIAL) {
+                defineVelocity(particle);
+            } else {
+                particle.setVelocityType(VelocityType.V_SOCIAL);
+            }
         }
     }
 
@@ -122,6 +141,9 @@ public class Main {
             case V_SOCIAL:
                 particle.pathRelinking(globalBestSolution.getBestSolution());
                 break;
+            case V_CHAOS:
+                particle.shuffleCurrentSolution();
+                break;
         }
     }
 
@@ -131,19 +153,19 @@ public class Main {
         //in the end, unless there was early exit, social factor will be high, cognitive low, and inertia almost non-existent
         inertiaFactorProbability *= 1 - INERTIA_DELTA_COEF / MAX_ITERATIONS;
         cognitiveFactorProbability *= 1 + COGNITIVE_DELTA_COEF / MAX_ITERATIONS;
-        socialFactorProbability = 1 - (inertiaFactorProbability + cognitiveFactorProbability);
+        socialFactorProbability = 1 - (inertiaFactorProbability + cognitiveFactorProbability + chaosFactorProbability);
     }
 
     private static void print() {
-        System.out.println("Iteration: " + iteration + ".");
-
-        for (Particle particle : particles) {
-            for (Point j : particle.getCurrentSolution()) {
-                System.out.print(j.x + "," + j.y + " ");
-            }
-
-            System.out.println(" Current: " + particle.getCurrentValue() + "  Best: " + particle.getBestValue());
-        }
+//        System.out.println("Iteration: " + (iteration - 1) + ".");
+//
+//        for (Particle particle : particles) {
+//            for (Point j : particle.getCurrentSolution()) {
+//                System.out.print(j.x + "," + j.y + " ");
+//            }
+//
+//            System.out.println(" Current: " + particle.getCurrentValue() + "  Best: " + particle.getBestValue());
+//        }
 
         System.out.println("Global best value: " + globalBestSolution.getBestValue());
         System.out.println();
@@ -154,7 +176,7 @@ public class Main {
         }
         System.out.print(globalBestSolution.getCurrentSolution().get(0).x + "', dtype=int, sep=' ')");
 
-        System.out.println(" ");
+        System.out.println();
 
         System.out.print("y = np.fromstring('");
         for (Point j : globalBestSolution.getCurrentSolution()) {
@@ -199,6 +221,8 @@ public class Main {
     }
 
     public static void main(String[] args) throws InterruptedException {
+        //read input via command line arguments
+        //update multiple particles per thread?
         long startTime = System.currentTimeMillis();
 
         PSO();

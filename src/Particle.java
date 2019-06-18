@@ -40,6 +40,7 @@ public class Particle {
     public void inversionNeighborhood() {
         List<List<Point>> neighbors = new ArrayList<>();
         List<Point> bestNeighbor = null;
+        double bestNeighborValue = Double.MAX_VALUE;
 
         for (int i = 1; i < currentSolution.size(); i++) {
             for (int j = 0; j < currentSolution.size() - i; j++) {
@@ -54,10 +55,15 @@ public class Particle {
         for (List<Point> neighbor : neighbors) {
             if (bestNeighbor == null || calculateSolutionValue(neighbor) < calculateSolutionValue(bestNeighbor)) {
                 bestNeighbor = neighbor;
+                bestNeighborValue = calculateSolutionValue(bestNeighbor);
             }
         }
 
-        setCurrentSolution(bestNeighbor);
+        if (bestNeighborValue < bestValue) {
+            setCurrentSolution(bestNeighbor);
+            setBestSolutionToCurrentSolution();
+            inversionNeighborhood();
+        }
     }
 
     public void pathRelinking(List<Point> otherPoints) {
