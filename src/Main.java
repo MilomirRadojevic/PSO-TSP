@@ -1,86 +1,60 @@
 import java.awt.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 
 public class Main {
-    private static final int NUMBER_OF_PARTICLES = 16;
+    private static final int NUMBER_OF_PARTICLES = 1000;
     private static List<Particle> particles = new ArrayList<>();
 
-    private static Particle globalBestSolution;
-    private static double previousGlobalBestValue = Double.MAX_VALUE;
+    private static List<Thread> threads = new ArrayList<>();
+
+    private static Particle globalBestParticle;
 
     private static int iteration = 1;
-    private static final int MAX_ITERATIONS = 2000;
+    private static int iterations_without_progress = 0;
+    private static final int MAX_ITERATIONS = 100;
+    private static final int MAX_ITERATIONS_WITHOUT_PROGRESS = 100;
 
-    private static double inertiaFactorProbability = 0.9;
+    private static double inertiaFactorProbability = 0.8;
     private static double cognitiveFactorProbability = 0.05;
     private static double socialFactorProbability = 0.05;
+    private static double chaosFactorProbability = 0.1;
 
-    private static final double INERTIA_DELTA_COEF = 4.0;
-    private static final double COGNITIVE_DELTA_COEF = 2.0;
+    private static final double INERTIA_DELTA_COEF = 3.0;
+    private static final double COGNITIVE_DELTA_COEF = 1.75;
 
-    private static void initialization() {
-        List<Point> inputPoints  = new ArrayList<>();
-        //10628
-        inputPoints.add(new Point(6734, 1453));
-        inputPoints.add(new Point(2233, 10));
-        inputPoints.add(new Point(5530, 1424));
-        inputPoints.add(new Point(401, 841));
-        inputPoints.add(new Point(3082, 1644));
-        inputPoints.add(new Point(7608, 4458));
-        inputPoints.add(new Point(7573, 3716));
-        inputPoints.add(new Point(7265, 1268));
-        inputPoints.add(new Point(6898, 1885));
-        inputPoints.add(new Point(1112, 2049));
-        inputPoints.add(new Point(5468, 2606));
-        inputPoints.add(new Point(5989, 2873));
-        inputPoints.add(new Point(4706, 2674));
-        inputPoints.add(new Point(4612, 2035));
-        inputPoints.add(new Point(6347, 2683));
-        inputPoints.add(new Point(6107, 669));
-        inputPoints.add(new Point(7611, 5184));
-        inputPoints.add(new Point(7462, 3590));
-        inputPoints.add(new Point(7732, 4723));
-        inputPoints.add(new Point(5900, 3561));
-        inputPoints.add(new Point(4483, 3369));
-        inputPoints.add(new Point(6101, 1110));
-        inputPoints.add(new Point(5199, 2182));
-        inputPoints.add(new Point(1633, 2809));
-        inputPoints.add(new Point(4307, 2322));
-        inputPoints.add(new Point(675, 1006));
-        inputPoints.add(new Point(7555, 4819));
-        inputPoints.add(new Point(7541, 3981));
-        inputPoints.add(new Point(3177, 756 ));
-        inputPoints.add(new Point(7352, 4506));
-        inputPoints.add(new Point(7545, 2801));
-        inputPoints.add(new Point(3245, 3305));
-        inputPoints.add(new Point(6426, 3173));
-        inputPoints.add(new Point(4608, 1198));
-        inputPoints.add(new Point(23, 2216));
-        inputPoints.add(new Point(7248, 3779));
-        inputPoints.add(new Point(7762, 4595));
-        inputPoints.add(new Point(7392, 2244));
-        inputPoints.add(new Point(3484, 2829));
-        inputPoints.add(new Point(6271, 2135));
-        inputPoints.add(new Point(4985, 140));
-        inputPoints.add(new Point(1916, 1569));
-        inputPoints.add(new Point(7280, 4899));
-        inputPoints.add(new Point(7509, 3239));
-        inputPoints.add(new Point(10, 2676));
-        inputPoints.add(new Point(6807, 2993));
-        inputPoints.add(new Point(5185, 3258));
-        inputPoints.add(new Point(3023, 1942));
+    private static class ParticleThread implements Runnable {
+        private List<Particle> particles;
+
+        private ParticleThread(List<Particle> particles) {
+            this.particles = particles;
+        }
+
+        public void run() {
+            for (Particle particle : particles) {
+                defineVelocity(particle);
+                updatePosition(particle);
+            }
+        }
+    }
+
+    private static void initialization(List<Point> inputPoints) {
 
         for (int i = 0; i < NUMBER_OF_PARTICLES; i++) {
-            Collections.shuffle(inputPoints);
+            Collections.shuffle(inputPoints, ThreadLocalRandom.current());
             Particle particle = new Particle(inputPoints);
 
             particles.add(particle);
 
-            if (globalBestSolution == null || particle.getBestValue() < globalBestSolution.getBestValue()) {
-                globalBestSolution = new Particle(particle);
+            if (globalBestParticle == null || particle.getBestValue() < globalBestParticle.getBestValue()) {
+                globalBestParticle = new Particle(particle);
             }
         }
     }
@@ -88,12 +62,44 @@ public class Main {
     private static void defineVelocity(Particle particle) {
         double randomNumber = ThreadLocalRandom.current().nextDouble();
 
+        if (particle.getMovementsAppliedToThisParticle().containsAll(EnumSet.of(VelocityType.V_INERTIA, VelocityType.V_SOCIAL)) ||
+            particle.getMovementsAppliedToThisParticle().containsAll(EnumSet.of(VelocityType.V_COGNITIVE, VelocityType.V_SOCIAL)) ||
+            particle.getMovementsAppliedToThisParticle().containsAll(EnumSet.of(VelocityType.V_INERTIA, VelocityType.V_COGNITIVE))) {
+            //avoid multiple movements of the same type per one instance of particle and force reshuffling
+            particle.setVelocityType(VelocityType.V_CHAOS);
+            particle.setMovementsAppliedToThisParticle(EnumSet.of(VelocityType.V_CHAOS));
+
+            return;
+        }
+
         if (randomNumber < inertiaFactorProbability) {
-            particle.setVelocityType(VelocityType.V_INERTIA);
+            if (particle.getVelocityType() == VelocityType.V_INERTIA) {
+                defineVelocity(particle);
+            } else {
+                particle.setVelocityType(VelocityType.V_INERTIA);
+                particle.getMovementsAppliedToThisParticle().add(VelocityType.V_INERTIA);
+            }
         } else if (randomNumber < inertiaFactorProbability + cognitiveFactorProbability) {
-            particle.setVelocityType(VelocityType.V_COGNITIVE);
-        } else { // randomNumber < inertiaFactorProbability + cognitiveFactorProbability + socialFactorProbability ~ 1
-            particle.setVelocityType(VelocityType.V_SOCIAL);
+            if (particle.getVelocityType() == VelocityType.V_COGNITIVE) {
+                defineVelocity(particle);
+            } else {
+                particle.setVelocityType(VelocityType.V_COGNITIVE);
+                particle.getMovementsAppliedToThisParticle().add(VelocityType.V_COGNITIVE);
+            }
+        } else if (randomNumber < inertiaFactorProbability + cognitiveFactorProbability + chaosFactorProbability) {
+            if (particle.getVelocityType() == VelocityType.V_CHAOS) {
+                defineVelocity(particle);
+            } else {
+                particle.setVelocityType(VelocityType.V_CHAOS);
+                particle.getMovementsAppliedToThisParticle().add(VelocityType.V_CHAOS);
+            }
+        } else { // randomNumber < inertiaFactorProbability + cognitiveFactorProbability + socialFactorProbability + chaosFactorProbability ~ 1
+            if (particle.getVelocityType() == VelocityType.V_SOCIAL) {
+                defineVelocity(particle);
+            } else {
+                particle.setVelocityType(VelocityType.V_SOCIAL);
+                particle.getMovementsAppliedToThisParticle().add(VelocityType.V_SOCIAL);
+            }
         }
     }
 
@@ -106,7 +112,10 @@ public class Main {
                 particle.pathRelinking(particle.getBestSolution());
                 break;
             case V_SOCIAL:
-                particle.pathRelinking(globalBestSolution.getBestSolution());
+                particle.pathRelinking(globalBestParticle.getBestSolution());
+                break;
+            case V_CHAOS:
+                particle.shuffleCurrentSolution();
                 break;
         }
     }
@@ -117,28 +126,34 @@ public class Main {
         //in the end, unless there was early exit, social factor will be high, cognitive low, and inertia almost non-existent
         inertiaFactorProbability *= 1 - INERTIA_DELTA_COEF / MAX_ITERATIONS;
         cognitiveFactorProbability *= 1 + COGNITIVE_DELTA_COEF / MAX_ITERATIONS;
-        socialFactorProbability = 1 - (inertiaFactorProbability + cognitiveFactorProbability);
+        socialFactorProbability = 1 - (inertiaFactorProbability + cognitiveFactorProbability + chaosFactorProbability);
     }
 
     private static void print() {
-//        System.out.println("Iteration: " + iteration + ". Iterations since last improvement: " + iterationsSinceLastImprovement + ".");
-//
-//        for (Particle particle : particles) {
-//            for (Point j : particle.getCurrentSolution()) {
-//                System.out.print(j.x + "," + j.y + " ");
-//            }
-//
-//            System.out.println(" Current: " + particle.getCurrentValue() + "  Best: " + particle.getBestValue());
-//        }
+        System.out.println("Iteration: " + (iteration - 1) + ".");
 
-        System.out.println("Global best value: " + globalBestSolution.getBestValue());
+        System.out.println("Global best value: " + globalBestParticle.getBestValue());
         System.out.println();
+
+        System.out.print("x = np.fromstring('");
+        for (Point j : globalBestParticle.getCurrentSolution()) {
+            System.out.print(j.x + " ");
+        }
+        System.out.print(globalBestParticle.getCurrentSolution().get(0).x + "', dtype=int, sep=' ')");
+
+        System.out.println();
+
+        System.out.print("y = np.fromstring('");
+        for (Point j : globalBestParticle.getCurrentSolution()) {
+            System.out.print(j.y + " ");
+        }
+        System.out.print(globalBestParticle.getCurrentSolution().get(0).y + "', dtype=int, sep=' ')");
     }
 
-    private static void PSO() {
-        initialization();
-
+    private static void PSO() throws InterruptedException {
         do {
+            iterations_without_progress++;
+
             for (Particle particle : particles) {
                 double currentValue = particle.getCurrentValue();
 
@@ -146,27 +161,64 @@ public class Main {
                     particle.setBestSolutionToCurrentSolution();
                 }
 
-                if (currentValue < globalBestSolution.getBestValue()) {
-                    globalBestSolution = new Particle(particle);
+                if (currentValue < globalBestParticle.getBestValue()) {
+                    globalBestParticle = new Particle(particle);
+                    iterations_without_progress = 0;
                 }
             }
 
-            if (globalBestSolution.getBestValue() < previousGlobalBestValue) {
-                previousGlobalBestValue = globalBestSolution.getBestValue();
+            int threadStep = 20;
+            for (int i = 0; i < particles.size(); i += threadStep) {
+                Thread thread = new Thread(new ParticleThread(particles.subList(i, Math.min(i + threadStep, particles.size()))));
+                threads.add(thread);
+
+                thread.start();
             }
 
-            for (Particle particle : particles) {
-                defineVelocity(particle);
-                updatePosition(particle);
+            for (Thread thread : threads) {
+                thread.join();
             }
+
+            threads.clear();
 
             updateProbabilities();
-        } while (iteration++ < MAX_ITERATIONS);
+        } while (iteration++ < MAX_ITERATIONS && iterations_without_progress <= MAX_ITERATIONS_WITHOUT_PROGRESS);
 
         print();
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
+        if (args.length != 1) {
+            System.out.println("Error occurred while reading command line arguments");
+
+            return;
+        }
+
+        String fileName = args[0];
+
+        List<Point> inputPoints;
+
+        try {
+            List<String> lines = Files.readAllLines(Paths.get("resources/" + fileName + ".txt"), StandardCharsets.UTF_8);
+
+            inputPoints = lines.stream().map(line -> {
+                String[] input = line.split(" ");
+
+                return new Point(Integer.valueOf(input[0]), Integer.valueOf(input[1]));
+            }).collect(Collectors.toList());
+        } catch (Exception e) {
+            System.out.println("Error occurred while reading file");
+
+            return;
+        }
+
+        long startTime = System.currentTimeMillis();
+
+        initialization(inputPoints);
         PSO();
+
+        System.out.println();
+        System.out.println();
+        System.out.println(System.currentTimeMillis() - startTime + " ms");
     }
 }

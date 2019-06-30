@@ -1,7 +1,9 @@
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class Particle {
     private List<Point> currentSolution;
@@ -9,6 +11,7 @@ public class Particle {
     private double currentValue;
     private double bestValue;
     private VelocityType velocityType;
+    private EnumSet<VelocityType> movementsAppliedToThisParticle = EnumSet.noneOf(VelocityType.class);
 
     Particle(List<Point> points) {
         setCurrentSolution(points);
@@ -22,23 +25,24 @@ public class Particle {
         bestValue = other.getBestValue();
     }
 
-    public List<Point> getCurrentSolution() {
+    List<Point> getCurrentSolution() {
         return currentSolution;
     }
 
-    public void setCurrentSolution(List<Point> points) {
+    private void setCurrentSolution(List<Point> points) {
         currentSolution = new ArrayList<>(points);
         currentValue = calculateSolutionValue(currentSolution);
     }
 
-    public void shuffleCurrentSolution() {
-        Collections.shuffle(currentSolution);
+    void shuffleCurrentSolution() {
+        Collections.shuffle(currentSolution, ThreadLocalRandom.current());
         currentValue = calculateSolutionValue(currentSolution);
     }
 
-    public void inversionNeighborhood() {
+    void inversionNeighborhood() {
         List<List<Point>> neighbors = new ArrayList<>();
         List<Point> bestNeighbor = null;
+        double bestNeighborValue = Double.MAX_VALUE;
 
         for (int i = 1; i < currentSolution.size(); i++) {
             for (int j = 0; j < currentSolution.size() - i; j++) {
@@ -53,32 +57,46 @@ public class Particle {
         for (List<Point> neighbor : neighbors) {
             if (bestNeighbor == null || calculateSolutionValue(neighbor) < calculateSolutionValue(bestNeighbor)) {
                 bestNeighbor = neighbor;
+                bestNeighborValue = calculateSolutionValue(bestNeighbor);
             }
         }
 
-        setCurrentSolution(bestNeighbor);
+        if (bestNeighborValue < bestValue) {
+            setCurrentSolution(bestNeighbor);
+            setBestSolutionToCurrentSolution();
+            inversionNeighborhood();
+        }
     }
 
-    public void pathRelinking(List<Point> otherPoints) {
-        Collections.rotate(currentSolution, -currentSolution.indexOf(otherPoints.get(0)));
+    void pathRelinking(List<Point> otherPoints) {
+        List<Point> currentIntermediate = new ArrayList<>(currentSolution);
+
+        Collections.rotate(currentIntermediate, -currentIntermediate.indexOf(otherPoints.get(0)));
+
+        List<List<Point>> intermediates = new ArrayList<>();
+        List<Point> bestIntermediate = null;
 
         for (int i = 1; i < otherPoints.size(); i++) {
             Point targetElement = otherPoints.get(i);
-            int index = currentSolution.indexOf(targetElement);
+            int index = currentIntermediate.indexOf(targetElement);
             while (index != i) {
-                Collections.swap(currentSolution, index, index - 1);
+                Collections.swap(currentIntermediate, index, index - 1);
+
+                intermediates.add(new ArrayList<>(currentIntermediate));
+
                 index--;
             }
         }
-    }
 
-    public List<Point> getBestSolution() {
-        return bestSolution;
-    }
+        if (intermediates.size() > 0) {
+            for (List<Point> intermediate : intermediates) {
+                if (bestIntermediate == null || calculateSolutionValue(intermediate) < calculateSolutionValue(bestIntermediate)) {
+                    bestIntermediate = intermediate;
+                }
+            }
 
-    public void setBestSolutionToCurrentSolution() {
-        bestSolution = new ArrayList<>(currentSolution);
-        bestValue = calculateSolutionValue(bestSolution);
+            setCurrentSolution(bestIntermediate);
+        }
     }
 
     private static double calculateSolutionValue(List<Point> solution) {
@@ -90,19 +108,36 @@ public class Particle {
         return value;
     }
 
-    public double getCurrentValue() {
+    List<Point> getBestSolution() {
+        return bestSolution;
+    }
+
+    void setBestSolutionToCurrentSolution() {
+        bestSolution = new ArrayList<>(currentSolution);
+        bestValue = calculateSolutionValue(bestSolution);
+    }
+
+    double getCurrentValue() {
         return currentValue;
     }
 
-    public double getBestValue() {
+    double getBestValue() {
         return bestValue;
     }
 
-    public VelocityType getVelocityType() {
+    VelocityType getVelocityType() {
         return velocityType;
     }
 
-    public void setVelocityType(VelocityType velocityType) {
+    void setVelocityType(VelocityType velocityType) {
         this.velocityType = velocityType;
+    }
+
+    EnumSet<VelocityType> getMovementsAppliedToThisParticle() {
+        return movementsAppliedToThisParticle;
+    }
+
+    void setMovementsAppliedToThisParticle(EnumSet<VelocityType> movementsAppliedToThisParticle) {
+        this.movementsAppliedToThisParticle = movementsAppliedToThisParticle;
     }
 }
