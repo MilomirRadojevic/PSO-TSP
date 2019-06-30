@@ -1,6 +1,7 @@
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -10,6 +11,7 @@ public class Particle {
     private double currentValue;
     private double bestValue;
     private VelocityType velocityType;
+    private EnumSet<VelocityType> movementsAppliedToThisParticle = EnumSet.noneOf(VelocityType.class);
 
     Particle(List<Point> points) {
         setCurrentSolution(points);
@@ -23,21 +25,21 @@ public class Particle {
         bestValue = other.getBestValue();
     }
 
-    public List<Point> getCurrentSolution() {
+    List<Point> getCurrentSolution() {
         return currentSolution;
     }
 
-    public void setCurrentSolution(List<Point> points) {
+    private void setCurrentSolution(List<Point> points) {
         currentSolution = new ArrayList<>(points);
         currentValue = calculateSolutionValue(currentSolution);
     }
 
-    public void shuffleCurrentSolution() {
+    void shuffleCurrentSolution() {
         Collections.shuffle(currentSolution, ThreadLocalRandom.current());
         currentValue = calculateSolutionValue(currentSolution);
     }
 
-    public void inversionNeighborhood() {
+    void inversionNeighborhood() {
         List<List<Point>> neighbors = new ArrayList<>();
         List<Point> bestNeighbor = null;
         double bestNeighborValue = Double.MAX_VALUE;
@@ -66,7 +68,7 @@ public class Particle {
         }
     }
 
-    public void pathRelinking(List<Point> otherPoints) {
+    void pathRelinking(List<Point> otherPoints) {
         List<Point> currentIntermediate = new ArrayList<>(currentSolution);
 
         Collections.rotate(currentIntermediate, -currentIntermediate.indexOf(otherPoints.get(0)));
@@ -106,28 +108,36 @@ public class Particle {
         return value;
     }
 
-    public List<Point> getBestSolution() {
+    List<Point> getBestSolution() {
         return bestSolution;
     }
 
-    public void setBestSolutionToCurrentSolution() {
+    void setBestSolutionToCurrentSolution() {
         bestSolution = new ArrayList<>(currentSolution);
         bestValue = calculateSolutionValue(bestSolution);
     }
 
-    public double getCurrentValue() {
+    double getCurrentValue() {
         return currentValue;
     }
 
-    public double getBestValue() {
+    double getBestValue() {
         return bestValue;
     }
 
-    public VelocityType getVelocityType() {
+    VelocityType getVelocityType() {
         return velocityType;
     }
 
-    public void setVelocityType(VelocityType velocityType) {
+    void setVelocityType(VelocityType velocityType) {
         this.velocityType = velocityType;
+    }
+
+    EnumSet<VelocityType> getMovementsAppliedToThisParticle() {
+        return movementsAppliedToThisParticle;
+    }
+
+    void setMovementsAppliedToThisParticle(EnumSet<VelocityType> movementsAppliedToThisParticle) {
+        this.movementsAppliedToThisParticle = movementsAppliedToThisParticle;
     }
 }
